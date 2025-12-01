@@ -2,11 +2,11 @@ name: U14B Schedule Scraper
 
 on:
   schedule:
-    - cron: "0 6 * * *"
-  workflow_dispatch:
+    - cron: "0 6 * * *"   # runs every day at 6 AM UTC
+  workflow_dispatch:       # allows manual runs from the Actions tab
 
 permissions:
-  contents: write
+  contents: write   # allow GITHUB_TOKEN to push commits
 
 jobs:
   scrape:
@@ -23,7 +23,7 @@ jobs:
         run: pip install requests
 
       - name: Run Schedule
-        run: python U14B_Schedule.py   # <-- your U14B script
+        run: python U14B_Schedule.py   # <-- must match your script filename
 
       - name: Move ICS to docs
         run: |
