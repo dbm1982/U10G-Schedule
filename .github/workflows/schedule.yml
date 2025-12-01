@@ -3,7 +3,10 @@ name: Bulldogs Schedule Scraper
 on:
   schedule:
     - cron: "0 6 * * *"   # runs every day at 6 AM UTC
-  workflow_dispatch:       # allows manual runs from the Actions tab
+  workflow_dispatch:       # allows manual runs
+
+permissions:
+  contents: write   # <-- give GITHUB_TOKEN permission to push commits
 
 jobs:
   scrape:
