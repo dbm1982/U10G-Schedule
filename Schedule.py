@@ -1,9 +1,34 @@
 import requests
 from datetime import datetime
 
-LEAGUE_URL = "https://apps.daysmartrecreation.com/dash/jsonapi/api/v1/leagues/547?cache[save]=false&include=sport%2Cteams.allEvents.statEvents.stat&company=unionpointsports"
+LEAGUE_URL = (
+    "https://apps.daysmartrecreation.com/dash/jsonapi/api/v1/leagues/547"
+    "?cache[save]=false"
+    "&include=sport,teams.allEvents.statEvents.stat"
+    "&company=unionpointsports"
+)
 TIMEZONE = "America/New_York"
-BULLDOGS_ID = "2368"  # ✅ Correct Bulldogs ID
+BULLDOGS_ID = "2368"
+
+# ✅ Manual lookup dictionaries based on what you confirmed from the site
+RESOURCE_MAP = {
+    "1": "Bubble 1",
+    "2": "Bubble 2",
+}
+
+RESOURCE_AREA_MAP = {
+    # Bubble 1 quarters
+    "1": "Quarter 1A",
+    "2": "Quarter 1B",
+    "3": "Quarter 1C",
+    "4": "Quarter 1D",
+
+    # Bubble 2 quarters
+    "5": "Quarter 2A",
+    "6": "Quarter 2B",
+    "7": "Quarter 2C",
+    "8": "Quarter 2D",
+}
 
 def fetch_league_data():
     r = requests.get(LEAGUE_URL)
@@ -17,7 +42,6 @@ def build_team_map(included):
             tid = item.get("id")
             name = (item.get("attributes") or {}).get("name") or f"Team {tid}"
             teams[tid] = name
-    # Ensure Bulldogs resolve even if attributes were missing
     teams[BULLDOGS_ID] = teams.get(BULLDOGS_ID, "(U10G) HAYSA Bulldogs")
     return teams
 
@@ -49,13 +73,16 @@ def write_ics(events, teams, filename="bulldogs_schedule.ics"):
             start_ics = start_iso.replace("-", "").replace(":", "")
             end_ics = end_iso.replace("-", "").replace(":", "")
 
-            htid = str(attrs["hteam_id"])
-            vtid = str(attrs["vteam_id"])
-            hteam = safe_name(teams, htid)
-            vteam = safe_name(teams, vtid)
-
+            hteam = safe_name(teams, str(attrs.get("hteam_id")))
+            vteam = safe_name(teams, str(attrs.get("vteam_id")))
             summary = f"{hteam} vs {vteam}"
             uid = f"{ev['id']}@unionpointsports"
+
+            # Resolve resource IDs
+            resource_id = str(attrs.get("resource_id"))
+            area_id = str(attrs.get("resource_area_id"))
+            resource_name = RESOURCE_MAP.get(resource_id, f"Resource {resource_id}")
+            area_name = RESOURCE_AREA_MAP.get(area_id, f"Area {area_id}")
 
             f.write("BEGIN:VEVENT\n")
             f.write(f"UID:{uid}\n")
@@ -63,6 +90,7 @@ def write_ics(events, teams, filename="bulldogs_schedule.ics"):
             f.write(f"DTSTART;TZID={TIMEZONE}:{start_ics}\n")
             f.write(f"DTEND;TZID={TIMEZONE}:{end_ics}\n")
             f.write(f"SUMMARY:{summary}\n")
+            f.write(f"LOCATION:Union Point Sports - {resource_name}: {area_name}\n")
             f.write("END:VEVENT\n")
         f.write("END:VCALENDAR\n")
 
@@ -79,11 +107,17 @@ def main():
         attrs = ev["attributes"]
         start = parse_dt(attrs["start"])
         end = parse_dt(attrs["end"])
-        hname = safe_name(teams, str(attrs["hteam_id"]))
-        vname = safe_name(teams, str(attrs["vteam_id"]))
+        hname = safe_name(teams, str(attrs.get("hteam_id")))
+        vname = safe_name(teams, str(attrs.get("vteam_id")))
         start_str = start.strftime("%a %m/%d/%Y %I:%M%p")
         end_str = end.strftime("%I:%M%p")
-        print(f"{start_str}–{end_str} {hname} vs {vname}")
+
+        resource_id = str(attrs.get("resource_id"))
+        area_id = str(attrs.get("resource_area_id"))
+        resource_name = RESOURCE_MAP.get(resource_id, f"Resource {resource_id}")
+        area_name = RESOURCE_AREA_MAP.get(area_id, f"Area {area_id}")
+
+        print(f"{start_str}–{end_str} {hname} vs {vname} @ Union Point Sports - {resource_name}: {area_name}")
 
     write_ics(bulldogs_games, teams)
     print("✅ Bulldogs-only ICS generated: bulldogs_schedule.ics")
